@@ -301,7 +301,7 @@ if __name__ == "__main__":
     # 실행: python -m database.seed
 
     # JSON 파일 경로 찾기
-    json_path = "/mnt/user-data/uploads/jj_departments_with_scores.json"
+    json_path = Path(__file__).parent.parent.parent / "jj_departments_with_scores.json"
 
     print("=" * 50)
     print("🚀 데이터베이스 초기화 시작")

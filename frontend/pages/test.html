@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="전주대학교 전공 유형 검사 - 20개 질문으로 나에게 맞는 전공 찾기">
+    <title>검사하기 | 전공 유형 검사</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="../css/reset.css">
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/components/header.css">
+    <link rel="stylesheet" href="../css/components/button.css">
+    <link rel="stylesheet" href="../css/pages/test.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-container">
+            <a href="../index.html" class="header-logo">
+                <div class="logo-icon">JJ</div>
+                <span>전공 유형 검사</span>
+            </a>
+
+            <nav class="header-nav" id="headerNav">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a href="../index.html" class="nav-link">홈</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="test.html" class="nav-link active">검사하기</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#departments" class="nav-link">학과소개</a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#about" class="nav-link">소개</a>
+                    </li>
+                </ul>
+            </nav>
+
+            <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="메뉴">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Test Container -->
+    <main class="test-container">
+        <!-- Progress Bar -->
+        <div class="progress-wrapper">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text">
+                <span id="currentQuestion">1</span> / <span id="totalQuestions">20</span>
+            </div>
+        </div>
+
+        <!-- Question Card -->
+        <div class="question-card" id="questionCard">
+            <div class="question-number">Question <span id="questionNum">1</span></div>
+            <h2 class="question-text" id="questionText">질문을 불러오는 중...</h2>
+            
+            <!-- Answer Options (리커트 5점 척도) -->
+            <div class="answer-options" id="answerOptions">
+                <button class="answer-btn" data-value="1">
+                    <span class="answer-icon">😞</span>
+                    <span class="answer-label">전혀 그렇지 않다</span>
+                </button>
+                <button class="answer-btn" data-value="2">
+                    <span class="answer-icon">😐</span>
+                    <span class="answer-label">그렇지 않다</span>
+                </button>
+                <button class="answer-btn" data-value="3">
+                    <span class="answer-icon">😊</span>
+                    <span class="answer-label">보통이다</span>
+                </button>
+                <button class="answer-btn" data-value="4">
+                    <span class="answer-icon">😄</span>
+                    <span class="answer-label">그렇다</span>
+                </button>
+                <button class="answer-btn" data-value="5">
+                    <span class="answer-icon">😍</span>
+                    <span class="answer-label">매우 그렇다</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="test-navigation">
+            <button class="btn btn-outline" id="prevBtn" disabled>
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                이전
+            </button>
+            <button class="btn btn-primary" id="nextBtn" disabled>
+                다음
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">결과를 분석하는 중입니다...</p>
+        </div>
+    </main>
+
+    <!-- JavaScript -->
+    <script src="../js/components/header.js"></script>
+    <script src="../js/pages/test.js"></script>
+</body>
+</html>
