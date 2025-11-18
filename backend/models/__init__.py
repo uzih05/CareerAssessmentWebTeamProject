@@ -1,18 +1,22 @@
 """
-Models Package - 데이터 모델 관리
-
-모든 모델 클래스를 여기서 import 가능
+Models Package - 모든 모델 클래스 export
 """
-
-from .question import Question, QuestionSet
+from .question import Question, QuestionSet, APTITUDE_NAMES
 from .department import Department, DepartmentMatcher
-from .result import TestResult, ResultSummary
+from .result import TestResult, ResultSummary, create_test_result
 
 __all__ = [
-    'Question',
-    'QuestionSet',
-    'Department',
-    'DepartmentMatcher',
-    'TestResult',
-    'ResultSummary'
+    # Question
+    "Question",
+    "QuestionSet",
+    "APTITUDE_NAMES",
+    
+    # Department
+    "Department",
+    "DepartmentMatcher",
+    
+    # Result
+    "TestResult",
+    "ResultSummary",
+    "create_test_result",
 ]

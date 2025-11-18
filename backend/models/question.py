@@ -1,185 +1,203 @@
 """
-Question Model - 질문 데이터 관리 클래스
-
-역할: DB와 API 사이의 중간 다리
-- 질문 생성, 조회, 수정 간편화
-- 점수 계산 로직 캡슐화
+Question Model - 질문 및 점수 계산 로직
 """
-
+from typing import List, Dict, Tuple
 from dataclasses import dataclass
-from typing import List, Dict
+
+
+# 10가지 적성 이름 (순서 고정)
+APTITUDE_NAMES = [
+    "언어능력",
+    "논리/분석력",
+    "창의력",
+    "사회성/공감능력",
+    "주도성/리더십",
+    "신체-활동성",
+    "예술감각/공간지각",
+    "체계성/꼼꼼함",
+    "탐구심",
+    "문제해결능력"
+]
 
 
 @dataclass
 class Question:
-    """질문 모델 - 개별 질문 하나를 표현"""
-
+    """개별 질문 데이터"""
     id: int
     question_text: str
-    aptitude_type: str  # '언어능력', '논리/분석력' 등
-    is_reverse: bool  # 역채점 여부
-    question_order: int
+    aptitude_type: str  # "언어능력", "논리/분석력" 등
+    is_reverse: bool    # 역채점 여부
+    tags: List[str]     # 관심사 태그 (예: ["코딩", "IT"])
 
-    def calculate_score(self, user_answer: int) -> int:
+    def calculate_answer_score(self, answer: int) -> int:
         """
-        사용자 답변을 적성 점수로 변환
-
-        Args:
-            user_answer: 1-5점 (리커트 척도)
-
-        Returns:
-            변환된 점수 1-5점
+        답변을 점수로 변환 (1-5점)
+        역채점 질문은 6 - answer
         """
         if self.is_reverse:
-            # 역채점: 5 → 1, 4 → 2, 3 → 3, 2 → 4, 1 → 5
-            return 6 - user_answer
-        else:
-            # 정채점: 그대로 반환
-            return user_answer
-
-    def to_dict(self) -> Dict:
-        """API 응답용 딕셔너리로 변환"""
-        return {
-            "id": self.id,
-            "question_text": self.question_text,
-            "aptitude_type": self.aptitude_type,
-            "question_order": self.question_order
-            # is_reverse는 클라이언트에 노출하지 않음 (보안)
-        }
-
-    @classmethod
-    def from_db_row(cls, row: tuple) -> 'Question':
-        """
-        DB 쿼리 결과를 Question 객체로 변환
-
-        Args:
-            row: (id, question_text, aptitude_type, is_reverse, question_order, created_at)
-
-        Returns:
-            Question 객체
-        """
-        return cls(
-            id=row[0],
-            question_text=row[1],
-            aptitude_type=row[2],
-            is_reverse=bool(row[3]),
-            question_order=row[4]
-        )
+            return 6 - answer
+        return answer
 
 
 class QuestionSet:
-    """질문 세트 관리 - 20개 질문 전체를 관리"""
+    """20개 질문 관리 및 점수 계산"""
 
     def __init__(self, questions: List[Question]):
-        self.questions = sorted(questions, key=lambda q: q.question_order)
+        self.questions = questions
 
-    def get_all(self) -> List[Dict]:
-        """모든 질문을 API 응답 형식으로 반환"""
-        return [q.to_dict() for q in self.questions]
+        # 적성별 질문 인덱스 매핑
+        self.aptitude_question_map = self._build_aptitude_map()
 
-    def calculate_aptitude_scores(self, user_answers: List[int]) -> Dict[str, float]:
+    def _build_aptitude_map(self) -> Dict[str, List[int]]:
+        """적성별로 질문 인덱스 매핑"""
+        mapping = {apt: [] for apt in APTITUDE_NAMES}
+
+        for i, q in enumerate(self.questions):
+            if q.aptitude_type in mapping:
+                mapping[q.aptitude_type].append(i)
+
+        return mapping
+
+    def calculate_score(self, answers: List[int]) -> Dict:
         """
-        사용자 답변을 10개 적성 점수로 변환
+        사용자 답변 → 적성 점수 + 관심사 태그
 
         Args:
-            user_answers: 20개 답변 (1-5점 리스트)
+            answers: 20개 질문의 답변 (1-5점)
 
         Returns:
-            적성별 평균 점수 딕셔너리 (1-5점)
-            예: {"언어능력": 4.5, "논리/분석력": 3.0, ...}
+            {
+                "aptitude_scores": [7, 8, 6, 9, ...],  # 10개 적성 점수
+                "interest_tags": ["코딩", "IT", ...]   # 관심사 태그
+            }
         """
-        if len(user_answers) != len(self.questions):
-            raise ValueError(f"답변 개수 불일치: {len(user_answers)}개 (예상: {len(self.questions)}개)")
+        if len(answers) != len(self.questions):
+            raise ValueError(f"답변 개수가 맞지 않습니다. 필요: {len(self.questions)}, 입력: {len(answers)}")
 
-        # 적성별로 점수 그룹화
-        aptitude_scores = {}
-        aptitude_counts = {}
+        # 1. 각 적성별 점수 계산 (평균)
+        aptitude_scores = []
 
-        for question, answer in zip(self.questions, user_answers):
-            # 답변 검증 (1-5 범위)
-            if not 1 <= answer <= 5:
-                raise ValueError(f"잘못된 답변: {answer} (1-5 범위여야 함)")
+        for aptitude in APTITUDE_NAMES:
+            question_indices = self.aptitude_question_map[aptitude]
 
-            # 점수 계산 (역채점 처리 포함)
-            score = question.calculate_score(answer)
-            aptitude = question.aptitude_type
+            if not question_indices:
+                # 해당 적성 질문이 없으면 0
+                aptitude_scores.append(0)
+                continue
 
-            # 적성별 합산
-            if aptitude not in aptitude_scores:
-                aptitude_scores[aptitude] = 0
-                aptitude_counts[aptitude] = 0
+            # 해당 적성 질문들의 점수 평균
+            scores = []
+            for idx in question_indices:
+                question = self.questions[idx]
+                user_answer = answers[idx]
+                score = question.calculate_answer_score(user_answer)
+                scores.append(score)
 
-            aptitude_scores[aptitude] += score
-            aptitude_counts[aptitude] += 1
+            avg_score = sum(scores) / len(scores)
+            aptitude_scores.append(round(avg_score, 1))
 
-        # 평균 계산
-        result = {
-            aptitude: aptitude_scores[aptitude] / aptitude_counts[aptitude]
-            for aptitude in aptitude_scores
+        # 2. 관심사 태그 추출 (4점 이상 답변한 질문의 태그)
+        interest_tags = self._extract_interest_tags(answers)
+
+        return {
+            "aptitude_scores": aptitude_scores,
+            "interest_tags": interest_tags
         }
 
-        return result
-
-    def calculate_aptitude_scores_list(self, user_answers: List[int]) -> List[float]:
+    def _extract_interest_tags(self, answers: List[int]) -> List[str]:
         """
-        사용자 답변을 10개 적성 점수 리스트로 변환 (순서 보장)
+        높은 점수를 받은 질문의 태그 추출
+        4점 이상 답변한 질문의 태그만 추출
+        """
+        tags = []
+
+        for i, answer in enumerate(answers):
+            question = self.questions[i]
+
+            # 역채점 질문은 낮은 답변이 높은 점수
+            actual_score = question.calculate_answer_score(answer)
+
+            if actual_score >= 4 and question.tags:
+                tags.extend(question.tags)
+
+        # 중복 제거
+        return list(set(tags))
+
+    def analyze_personality(self, scores: List[float]) -> str:
+        """
+        적성 점수로 성향 분석
 
         Args:
-            user_answers: 20개 답변 (1-5점 리스트)
+            scores: 10개 적성 점수
 
         Returns:
-            10개 적성 점수 리스트 (1-5점)
-            순서: [언어, 논리, 창의, 사회성, 주도성, 신체, 예술, 체계성, 탐구, 문제해결]
+            "논리형", "창의형" 등의 성향 문자열
         """
-        scores_dict = self.calculate_aptitude_scores(user_answers)
+        if len(scores) != 10:
+            raise ValueError("적성 점수는 10개여야 합니다")
 
-        # 고정된 순서로 리스트 생성
-        aptitude_order = [
-            "언어능력",
-            "논리/분석력",
-            "창의력",
-            "사회성/공감능력",
-            "주도성/리더십",
-            "신체-활동성",
-            "예술감각/공간지각",
-            "체계성/꼼꼼함",
-            "탐구심",
-            "문제해결능력"
-        ]
+        # 가장 높은 점수 2개의 적성 찾기
+        indexed_scores = [(score, idx) for idx, score in enumerate(scores)]
+        indexed_scores.sort(reverse=True)
 
-        return [scores_dict.get(apt, 3.0) for apt in aptitude_order]
+        top1_idx = indexed_scores[0][1]
+        top2_idx = indexed_scores[1][1]
 
+        # 성향 매핑
+        personality_map = {
+            0: "언어형",      # 언어능력
+            1: "논리형",      # 논리/분석력
+            2: "창의형",      # 창의력
+            3: "사회형",      # 사회성/공감능력
+            4: "리더형",      # 주도성/리더십
+            5: "활동형",      # 신체-활동성
+            6: "예술형",      # 예술감각/공간지각
+            7: "체계형",      # 체계성/꼼꼼함
+            8: "탐구형",      # 탐구심
+            9: "실행형"       # 문제해결능력
+        }
 
-# 사용 예시
-if __name__ == "__main__":
-    # 예시 질문 생성
-    q1 = Question(
-        id=1,
-        question_text="책을 읽거나 글을 쓰는 것을 좋아한다.",
-        aptitude_type="언어능력",
-        is_reverse=False,
-        question_order=1
-    )
+        # 1순위 적성 기준
+        return personality_map.get(top1_idx, "균형형")
 
-    q2 = Question(
-        id=2,
-        question_text="다른 사람에게 내 생각을 표현하는 것이 어렵다.",
-        aptitude_type="언어능력",
-        is_reverse=True,
-        question_order=2
-    )
+    def get_strong_aptitudes(self, scores: List[float], threshold: float = 4.0) -> List[Tuple[str, float]]:
+        """
+        강점 적성 추출 (threshold 이상)
 
-    # 정채점 테스트
-    print("Q1 (정채점) - 답변 5점:", q1.calculate_score(5))  # 5
+        Returns:
+            [("논리/분석력", 8.5), ("문제해결능력", 9.0)]
+        """
+        strong = []
 
-    # 역채점 테스트
-    print("Q2 (역채점) - 답변 5점:", q2.calculate_score(5))  # 1
-    print("Q2 (역채점) - 답변 1점:", q2.calculate_score(1))  # 5
+        for i, score in enumerate(scores):
+            if score >= threshold:
+                strong.append((APTITUDE_NAMES[i], score))
 
-    # 질문 세트 테스트
-    question_set = QuestionSet([q1, q2])
-    user_answers = [5, 2]  # Q1: 5점, Q2: 2점
+        # 점수 높은 순 정렬
+        strong.sort(key=lambda x: x[1], reverse=True)
 
-    scores = question_set.calculate_aptitude_scores(user_answers)
-    print("\n적성 점수:", scores)
-    # 언어능력 = (5 + (6-2)) / 2 = 4.5
+        return strong
+
+    def get_weak_aptitudes(self, scores: List[float], threshold: float = 3.0) -> List[Tuple[str, float]]:
+        """
+        약점 적성 추출 (threshold 이하)
+
+        Returns:
+            [("신체-활동성", 2.5), ("예술감각", 2.0)]
+        """
+        weak = []
+
+        for i, score in enumerate(scores):
+            if score <= threshold:
+                weak.append((APTITUDE_NAMES[i], score))
+
+        # 점수 낮은 순 정렬
+        weak.sort(key=lambda x: x[1])
+
+        return weak
+
+    def get_aptitude_name(self, index: int) -> str:
+        """인덱스로 적성 이름 조회"""
+        if 0 <= index < len(APTITUDE_NAMES):
+            return APTITUDE_NAMES[index]
+        return "알 수 없음"
