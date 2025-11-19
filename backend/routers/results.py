@@ -212,13 +212,6 @@ async def submit_test(submission: TestSubmission):
         user_scores = score_result["aptitude_scores"]
         interest_tags = score_result["interest_tags"]
 
-        print("\n" + "=" * 50)
-        print("🔍 디버깅 정보:")
-        print(f"📝 사용자 답변: {submission.answers}")
-        print(f"📊 적성 점수: {user_scores}")
-        print(f"🏷️ 관심사 태그: {interest_tags}")
-        print("=" * 50 + "\n")
-
         # 3. 성향 분석
         personality = question_set.analyze_personality(user_scores)
 
@@ -317,7 +310,12 @@ async def submit_test(submission: TestSubmission):
 async def get_result(result_id: str):
     """
     저장된 결과 조회 (공유 기능)
-    ...
+
+    Args:
+        result_id: 결과 ID (8자리)
+
+    Returns:
+        저장된 검사 결과
     """
     try:
         # ID 유효성 검사
@@ -344,98 +342,27 @@ async def get_result(result_id: str):
                 detail="결과를 찾을 수 없습니다"
             )
 
-        # JSON 파싱 (저장된 데이터)
+        # JSON 파싱
         user_answers = json.loads(row["user_answers"])
         user_scores = json.loads(row["user_scores"])
-        top_departments_saved = json.loads(row["top_departments"])  # 저장된 Top N
+        top_departments = json.loads(row["top_departments"])
 
-        # --- [수정 시작: 전체 결과 재계산] ---
-
-        # 1. 질문 로드 및 QuestionSet 생성
+        # 질문 로드하여 성향 재계산
         questions = load_questions_from_db()
         question_set = QuestionSet(questions)
-
-        # 2. 관심사 태그 재계산 (user_answers 사용)
-        score_result = question_set.calculate_score(user_answers)
-        interest_tags = score_result["interest_tags"]
-
-        # 3. 성향 재분석 (user_scores 사용)
         personality = question_set.analyze_personality(user_scores)
 
-        # 4. 학과 로드 및 매칭 재계산
-        departments = load_departments_from_db()
-        matcher = DepartmentMatcher(departments)
-
-        match_result = matcher.match_departments(
-            user_scores=user_scores,
-            user_tags=interest_tags,
-            top_n=3,
-            worst_n=3
-        )
-
-        # 5. 결과 포맷 변환 (submit_test와 동일한 헬퍼 함수 재정의 필요)
-
-        def format_department_match(match: Dict) -> Dict:
-            """매칭 결과를 직렬화 가능한 형태로 변환"""
-            dept = match["department"]
-            return {
-                "department": {
-                    "id": dept.id,
-                    "name": dept.name,
-                    "url": dept.url,
-                    "description": dept.description
-                },
-                "match_percentage": match["match_percentage"],
-                "reason": match["reason"],
-                "mismatch_reason": match.get("mismatch_reason")
-            }
-
-        def format_similar_department(match: Dict) -> Dict:
-            """관심사 기반 추천 포맷"""
-            dept = match["department"]
-            return {
-                "department": {
-                    "id": dept.id,
-                    "name": dept.name,
-                    "url": dept.url,
-                    "description": dept.description
-                },
-                "common_tags": match["common_tags"],
-                "tag_match_count": match["tag_match_count"]
-            }
-
-        top_depts = [format_department_match(m) for m in match_result["top"]]
-        worst_depts = [format_department_match(m) for m in match_result["worst"]]
-        similar_depts = [format_similar_department(m) for m in match_result["similar"]]
-
-        # 6. 요약 문구 재생성
-        # TestResult 객체 재구성
-        test_result_recalc = create_test_result(
-            result_id=result_id,
-            answers=user_answers,
-            scores=user_scores,
-            tags=interest_tags,
-            personality=personality,
-            top_depts=top_depts,  # 재계산된 결과 사용
-            worst_depts=worst_depts,
-            similar_depts=similar_depts
-        )
-        summary_gen = ResultSummary(test_result_recalc)
-        summary = summary_gen.generate_full_summary()  # 상세 요약 생성
-
-        # --- [수정 끝: 전체 결과 재계산] ---
-
-        # 응답 구성 (재계산된 전체 데이터 반환)
+        # 응답 구성 (간소화 버전)
         return TestResultResponse(
             id=row["id"],
             url=f"/result/{row['id']}",
             scores=user_scores,
-            interest_tags=interest_tags,  # 이제 재계산된 태그가 들어갑니다
+            interest_tags=[],  # 저장하지 않음
             personality=personality,
-            summary=summary,  # 이제 상세 요약이 들어갑니다
-            top_departments=top_departments_saved,  # 저장된 Top N 사용 (일관성을 위해)
-            worst_departments=worst_depts,  # 이제 재계산된 Worst N이 들어갑니다
-            similar_departments=similar_depts,  # 이제 재계산된 Similar N이 들어갑니다
+            summary={},  # 요약도 간소화
+            top_departments=top_departments,
+            worst_departments=[],  # Worst는 공유 안 함
+            similar_departments=[],
             created_at=row["created_at"]
         )
 
@@ -446,6 +373,7 @@ async def get_result(result_id: str):
             status_code=500,
             detail=f"결과 조회 중 오류 발생: {str(e)}"
         )
+
 
 @router.delete("/{result_id}")
 async def delete_result(result_id: str):
