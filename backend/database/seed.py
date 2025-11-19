@@ -1,5 +1,6 @@
 """
 Seed Data - 초기 데이터 삽입 (질문 20개 + 학과 70개)
+✅ tags와 category 자동 생성 기능 추가
 """
 import json
 import sys
@@ -179,16 +180,19 @@ def extract_department_tags(aptitude_list: list) -> list:
     """
     학과 적성 설명에서 키워드 태그 추출
 
-    예: "영어 교사 목표" → ["영어", "교사", "교육"]
+    예: ["영어 교사 목표", "회화 관심"] → ["영어", "교육", "언어"]
     """
     keywords_map = {
-        "교사": ["교육", "교사", "교직"],
-        "교수": ["교육", "교수", "학문"],
-        "의사": ["의료", "건강", "치료"],
+        "교사": ["교육", "교직"],
+        "교수": ["교육", "학문"],
+        "의사": ["의료", "건강"],
         "간호": ["의료", "간호", "돌봄"],
         "컴퓨터": ["IT", "컴퓨터", "기술"],
         "프로그램": ["IT", "코딩", "프로그래밍"],
         "코딩": ["IT", "코딩", "프로그래밍"],
+        "AI": ["AI", "인공지능", "기술"],
+        "인공지능": ["AI", "인공지능", "기술"],
+        "데이터": ["데이터", "분석", "IT"],
         "디자인": ["디자인", "미술", "창작"],
         "예술": ["예술", "창작", "표현"],
         "경영": ["경영", "비즈니스", "관리"],
@@ -205,8 +209,15 @@ def extract_department_tags(aptitude_list: list) -> list:
         "문화": ["문화", "인문", "예술"],
         "과학": ["과학", "연구", "실험"],
         "공학": ["공학", "기술", "엔지니어링"],
-        "AI": ["AI", "인공지능", "기술"],
         "게임": ["게임", "콘텐츠", "개발"],
+        "영화": ["영화", "미디어", "콘텐츠"],
+        "방송": ["방송", "미디어", "콘텐츠"],
+        "관광": ["관광", "여행", "서비스"],
+        "호텔": ["호텔", "서비스", "관광"],
+        "조리": ["조리", "요리", "식품"],
+        "패션": ["패션", "디자인", "의류"],
+        "웹툰": ["웹툰", "만화", "창작"],
+        "심리": ["심리", "상담", "치료"],
     }
 
     tags = set()
@@ -219,20 +230,58 @@ def extract_department_tags(aptitude_list: list) -> list:
     return list(tags)
 
 
+def infer_category(dept_name: str) -> str:
+    """
+    학과명으로 계열 추론
+
+    Args:
+        dept_name: 학과명 (예: "컴퓨터공학과")
+
+    Returns:
+        계열명 (예: "이공계")
+    """
+    if any(k in dept_name for k in ["공학", "컴퓨터", "전기", "기계", "건축", "토목", "화학", "소재", "신소재", "데이터", "인공지능", "소프트웨어"]):
+        return "이공계"
+    elif any(k in dept_name for k in ["경영", "경제", "금융", "회계", "무역", "부동산", "물류", "IT금융", "창업"]):
+        return "경상계"
+    elif any(k in dept_name for k in ["국어", "영어", "일본", "중국", "한국어", "문학", "역사", "한문"]):
+        return "인문계"
+    elif any(k in dept_name for k in ["디자인", "예술", "미술", "체육", "음악", "공연", "영화", "게임", "웹툰", "산업디자인", "시각디자인", "생활체육", "축구", "태권도"]):
+        return "예체능"
+    elif any(k in dept_name for k in ["간호", "물리치료", "작업치료", "방사선", "보건", "식품영양", "재활", "운동처방", "동물보건"]):
+        return "보건의료"
+    elif any(k in dept_name for k in ["교육과", "사범"]):
+        return "교육계"
+    elif any(k in dept_name for k in ["법학", "행정", "경찰", "사회복지", "상담", "문헌정보"]):
+        return "사회과학"
+    elif any(k in dept_name for k in ["관광", "호텔", "외식", "조리", "패션", "한식"]):
+        return "관광·서비스"
+    elif any(k in dept_name for k in ["소방", "자동차"]):
+        return "안전·기술"
+    elif any(k in dept_name for k in ["미네르바", "로컬벤처", "농식품", "반려동물", "자유전공", "펫산업"]):
+        return "융합·미래"
+    else:
+        return "기타"
+
+
 def insert_questions(db):
     """질문 20개 삽입"""
     print("\n📝 질문 데이터 삽입 중...")
 
     for q in QUESTIONS_DATA:
+        # ✅ tags를 JSON으로 변환하여 저장
+        tags_json = json.dumps(q.get("tags", []), ensure_ascii=False)
+
         db.execute("""
                    INSERT INTO questions
-                       (question_text, aptitude_type, is_reverse, question_order)
-                   VALUES (?, ?, ?, ?)
+                       (question_text, aptitude_type, is_reverse, question_order, tags)
+                   VALUES (?, ?, ?, ?, ?)
                    """, (
                        q["question_text"],
                        q["aptitude_type"],
                        q["is_reverse"],
-                       q["question_order"]
+                       q["question_order"],
+                       tags_json
                    ))
 
     count = db.get_table_count("questions")
@@ -240,29 +289,44 @@ def insert_questions(db):
 
 
 def insert_departments(db, json_path: str):
-    """학과 70개 삽입"""
+    """학과 70개 삽입 (✅ tags, category 자동 생성)"""
     print("\n🏫 학과 데이터 삽입 중...")
 
     with open(json_path, 'r', encoding='utf-8') as f:
         departments = json.load(f)
 
     for dept in departments:
-        # 태그 자동 생성
+        # ✅ tags와 category 자동 생성
         tags = extract_department_tags(dept["적성"])
+        category = infer_category(dept["학과"])
 
         db.execute("""
                    INSERT INTO departments
-                       (name, aptitude_scores, description, url)
-                   VALUES (?, ?, ?, ?)
+                       (name, aptitude_scores, description, url, tags, category)
+                   VALUES (?, ?, ?, ?, ?, ?)
                    """, (
                        dept["학과"],
                        json.dumps(dept["적성점수"]),
                        json.dumps(dept["적성"], ensure_ascii=False),
-                       dept["URL"]
+                       dept["URL"],
+                       json.dumps(tags, ensure_ascii=False),  # ✅ tags 저장
+                       category  # ✅ category 저장
                    ))
 
     count = db.get_table_count("departments")
     print(f"✅ 학과 {count}개 삽입 완료!")
+
+    # ✅ 계열별 통계 출력
+    print("\n📊 계열별 학과 분포:")
+    category_query = """
+        SELECT category, COUNT(*) as count 
+        FROM departments 
+        GROUP BY category 
+        ORDER BY count DESC
+    """
+    category_stats = db.fetchall(category_query)
+    for row in category_stats:
+        print(f"   - {row['category']}: {row['count']}개")
 
 
 def seed_database(json_path: str = None, reset: bool = False):

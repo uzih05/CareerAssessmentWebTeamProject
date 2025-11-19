@@ -1,5 +1,6 @@
 """
 Results Router - 검사 결과 처리 API
+✅ tags와 category를 DB에서 직접 읽기 (완벽한 버전)
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, validator
@@ -72,13 +73,13 @@ class TestResultResponse(BaseModel):
 
 # 헬퍼 함수
 def load_questions_from_db() -> List[Question]:
-    """데이터베이스에서 질문 로드"""
+    """데이터베이스에서 질문 로드 (✅ tags 포함)"""
     db = get_db()
 
     query = """
-            SELECT id, question_text, aptitude_type, is_reverse, question_order
+            SELECT id, question_text, aptitude_type, is_reverse, question_order, tags
             FROM questions
-            ORDER BY question_order ASC \
+            ORDER BY question_order ASC
             """
 
     rows = db.fetchall(query)
@@ -91,24 +92,35 @@ def load_questions_from_db() -> List[Question]:
 
     questions = []
     for row in rows:
+        # ✅ DB에서 tags 읽기
+        tags = []
+        if row["tags"]:
+            try:
+                tags = json.loads(row["tags"])
+            except (json.JSONDecodeError, TypeError):
+                tags = []
+
         questions.append(Question(
             id=row["id"],
             question_text=row["question_text"],
             aptitude_type=row["aptitude_type"],
             is_reverse=bool(row["is_reverse"]),
-            tags=[]  # 태그는 추후 추가
+            tags=tags  # ✅ DB에서 가져온 tags
         ))
 
     return questions
 
 
 def load_departments_from_db() -> List[Department]:
-    """데이터베이스에서 학과 로드"""
+    """
+    데이터베이스에서 학과 로드
+    ✅ tags와 category를 DB에서 직접 읽기 (완벽한 버전)
+    """
     db = get_db()
 
     query = """
-            SELECT id, name, aptitude_scores, description, url
-            FROM departments \
+            SELECT id, name, aptitude_scores, description, url, tags, category
+            FROM departments
             """
 
     rows = db.fetchall(query)
@@ -121,19 +133,33 @@ def load_departments_from_db() -> List[Department]:
 
     departments = []
     for row in rows:
-        # JSON 파싱
-        scores = json.loads(row["aptitude_scores"])
-        desc_list = json.loads(row["description"]) if row["description"] else []
+        try:
+            # JSON 파싱
+            scores = json.loads(row["aptitude_scores"])
+            desc_list = json.loads(row["description"]) if row["description"] else []
 
-        departments.append(Department(
-            id=row["id"],
-            name=row["name"],
-            aptitude_scores=scores,
-            description=" / ".join(desc_list) if desc_list else "",
-            url=row["url"] or "",
-            tags=[],  # 태그는 추후 추가
-            category=""  # 계열은 추후 추가
-        ))
+            # ✅ DB에서 tags와 category 직접 읽기 (None 체크 강화)
+            tags = []
+            if row["tags"]:
+                try:
+                    tags = json.loads(row["tags"])
+                except (json.JSONDecodeError, TypeError):
+                    tags = []
+
+            category = row["category"] if row["category"] else "기타"
+
+            departments.append(Department(
+                id=row["id"],
+                name=row["name"],
+                aptitude_scores=scores,
+                description=" / ".join(desc_list) if desc_list else "",
+                url=row["url"] or "",
+                tags=tags,  # ✅ DB에서 가져온 값
+                category=category  # ✅ DB에서 가져온 값
+            ))
+        except Exception as e:
+            print(f"⚠️ 학과 '{row['name']}' 로드 중 오류: {e}")
+            continue
 
     return departments
 
@@ -146,7 +172,7 @@ def save_result_to_db(result: TestResult) -> bool:
         query = """
                 INSERT INTO test_results
                     (id, user_answers, user_scores, top_departments, created_at)
-                VALUES (?, ?, ?, ?, ?) \
+                VALUES (?, ?, ?, ?, ?)
                 """
 
         db.execute(query, (
@@ -221,7 +247,23 @@ async def submit_test(submission: TestSubmission):
 
         top_depts = [format_department_match(m) for m in match_result["top"]]
         worst_depts = [format_department_match(m) for m in match_result["worst"]]
-        similar_depts = [format_department_match(m) for m in match_result["similar"]]
+
+        # ✅ similar는 다른 구조라서 별도 처리
+        def format_similar_department(match: Dict) -> Dict:
+            """관심사 기반 추천 포맷"""
+            dept = match["department"]
+            return {
+                "department": {
+                    "id": dept.id,
+                    "name": dept.name,
+                    "url": dept.url,
+                    "description": dept.description
+                },
+                "common_tags": match["common_tags"],
+                "tag_match_count": match["tag_match_count"]
+            }
+
+        similar_depts = [format_similar_department(m) for m in match_result["similar"]]
 
         test_result = create_test_result(
             result_id=result_id,
@@ -289,7 +331,7 @@ async def get_result(result_id: str):
         query = """
                 SELECT id, user_answers, user_scores, top_departments, created_at
                 FROM test_results
-                WHERE id = ? \
+                WHERE id = ?
                 """
 
         row = db.fetchone(query, (result_id,))
@@ -401,7 +443,7 @@ async def get_results_stats():
         recent_query = """
                        SELECT created_at
                        FROM test_results
-                       ORDER BY created_at DESC LIMIT 1 \
+                       ORDER BY created_at DESC LIMIT 1
                        """
         recent_row = db.fetchone(recent_query)
         last_created = recent_row["created_at"] if recent_row else None

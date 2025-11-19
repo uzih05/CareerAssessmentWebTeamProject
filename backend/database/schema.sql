@@ -5,22 +5,25 @@
 CREATE TABLE IF NOT EXISTS questions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     question_text TEXT NOT NULL,
-    aptitude_type VARCHAR(50) NOT NULL,  -- 측정하는 적성 (언어능력, 논리/분석력 등)
-    is_reverse BOOLEAN DEFAULT FALSE,    -- 역채점 여부 (True면 5→1, 4→2 등)
-    question_order INTEGER NOT NULL,     -- 질문 순서 (1-20)
+    aptitude_type VARCHAR(50) NOT NULL,
+    is_reverse BOOLEAN DEFAULT FALSE,
+    question_order INTEGER NOT NULL,
+    tags TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 적성 타입 인덱스 (검색 최적화)
 CREATE INDEX IF NOT EXISTS idx_questions_aptitude ON questions(aptitude_type);
 
--- 학과 테이블
+-- 학과 테이블 (✅ tags, category 추가)
 CREATE TABLE IF NOT EXISTS departments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL UNIQUE,
     aptitude_scores TEXT NOT NULL,       -- JSON 문자열: "[7,8,6,9,5,4,7,8,6,7]"
     description TEXT,                    -- 학과 설명
     url TEXT,                            -- 학과 홈페이지 URL
+    tags TEXT,                           -- JSON 문자열: 학과 관심사 태그 ["IT", "코딩", "프로그래밍"]
+    category TEXT,                       -- 계열 (예: "이공계", "인문계", "보건의료")
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
