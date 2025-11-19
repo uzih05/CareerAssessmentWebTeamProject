@@ -1,251 +1,212 @@
-// Test Page JavaScript
+// frontend/js/pages/test.js
+
 const API_BASE_URL = 'http://localhost:8000';
+const QUESTIONS_PER_PAGE = 10;
 
 // State
 let questions = [];
-let currentQuestionIndex = 0;
 let answers = new Array(20).fill(null);
+let currentPage = 0; // 0: 1~10번, 1: 11~20번
 
 // DOM Elements
-const questionCard = document.getElementById('questionCard');
-const questionNum = document.getElementById('questionNum');
-const questionText = document.getElementById('questionText');
-const answerOptions = document.getElementById('answerOptions');
-const currentQuestionSpan = document.getElementById('currentQuestion');
-const totalQuestionsSpan = document.getElementById('totalQuestions');
+const questionsList = document.getElementById('questionsList');
+const nextPageBtn = document.getElementById('nextPageBtn');
 const progressFill = document.getElementById('progressFill');
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
+const progressPercent = document.getElementById('progressPercent');
 const loadingOverlay = document.getElementById('loadingOverlay');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('📄 검사 페이지 로드됨');
-    console.log('🔗 백엔드 서버:', API_BASE_URL);
-
     await loadQuestions();
-    renderQuestion();
+    renderQuestionsPage();
     setupEventListeners();
-
-    console.log('✅ 초기화 완료');
 });
 
 // Load questions from API
 async function loadQuestions() {
     try {
-        console.log('🔄 질문 로딩 시작...');
-        console.log('📡 API URL:', `${API_BASE_URL}/api/questions`);
+        // 로딩 표시 (화면 중앙 스피너가 아닌, 리스트에 로딩 텍스트 표시 등)
+        questionsList.innerHTML = '<div style="text-align:center; color:white; font-size:1.2rem;">질문을 불러오는 중...</div>';
 
         const response = await fetch(`${API_BASE_URL}/api/questions`);
-
-        console.log('📥 응답 상태:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('❌ API 에러:', errorText);
-            throw new Error(`질문을 불러오는데 실패했습니다 (${response.status})`);
-        }
+        if (!response.ok) throw new Error('API Error');
 
         const data = await response.json();
         questions = data.questions;
-        totalQuestionsSpan.textContent = questions.length;
 
-        console.log('✅ 질문 로드 완료:', questions.length, '개');
-
-    } catch (error) {
-        console.error('❌ 질문 로드 실패:', error);
-
-        // 백엔드 서버 확인
-        if (error.message.includes('Failed to fetch')) {
-            alert('⚠️ 백엔드 서버에 연결할 수 없습니다.\n\n다음을 확인해주세요:\n1. backend 폴더에서 "python main.py" 실행\n2. http://localhost:8000이 열려있는지 확인\n3. 터미널에서 서버가 실행 중인지 확인');
-
-            // 임시 테스트 질문 생성 (개발용)
-            console.log('⚠️ 임시 질문 생성 중...');
-            questions = Array(20).fill(null).map((_, i) => ({
-                id: i + 1,
-                text: `질문 ${i + 1}: 백엔드 서버를 실행해주세요.`,
-                order: i + 1
-            }));
-            totalQuestionsSpan.textContent = questions.length;
-        } else {
-            alert(`질문을 불러오는데 실패했습니다.\n\n에러: ${error.message}\n\n페이지를 새로고침해주세요.`);
+        // 만약 백엔드 연결이 안되면 테스트용 더미 데이터 (개발용)
+        if (!questions || questions.length === 0) {
+            throw new Error('No Data');
         }
+    } catch (error) {
+        console.error('질문 로드 실패:', error);
+        alert('서버 연결에 실패했습니다. 백엔드를 실행해주세요.');
     }
 }
 
-// Render current question
-function renderQuestion() {
+// Render current page questions (10 at a time)
+function renderQuestionsPage() {
     if (questions.length === 0) return;
 
-    const question = questions[currentQuestionIndex];
+    // Clear list
+    questionsList.innerHTML = '';
+    window.scrollTo(0, 0); // 맨 위로 스크롤
 
-    // Update question text with animation
-    questionCard.style.animation = 'none';
-    setTimeout(() => {
-        questionCard.style.animation = 'fadeInScale 0.5s ease';
-    }, 10);
+    const startIdx = currentPage * QUESTIONS_PER_PAGE;
+    const endIdx = Math.min(startIdx + QUESTIONS_PER_PAGE, questions.length);
+    const currentQuestions = questions.slice(startIdx, endIdx);
 
-    questionNum.textContent = currentQuestionIndex + 1;
-    questionText.textContent = question.text;
-    currentQuestionSpan.textContent = currentQuestionIndex + 1;
+    // Update Progress
+    updateProgress();
 
-    // Update progress bar
-    const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-    progressFill.style.width = `${progress}%`;
-
-    // Highlight selected answer
-    const answerButtons = answerOptions.querySelectorAll('.answer-btn');
-    answerButtons.forEach(btn => {
-        const value = parseInt(btn.dataset.value);
-        if (answers[currentQuestionIndex] === value) {
-            btn.classList.add('selected');
-        } else {
-            btn.classList.remove('selected');
-        }
-    });
-
-    // Update navigation buttons
-    updateNavigationButtons();
-}
-
-// Setup event listeners
-function setupEventListeners() {
-    // Answer buttons
-    const answerButtons = answerOptions.querySelectorAll('.answer-btn');
-    answerButtons.forEach(btn => {
-        btn.addEventListener('click', () => handleAnswerClick(btn));
-    });
-
-    // Navigation buttons
-    prevBtn.addEventListener('click', handlePrevious);
-    nextBtn.addEventListener('click', handleNext);
-}
-
-// Handle answer selection
-function handleAnswerClick(button) {
-    const value = parseInt(button.dataset.value);
-
-    // Save answer
-    answers[currentQuestionIndex] = value;
-
-    // Update UI
-    const answerButtons = answerOptions.querySelectorAll('.answer-btn');
-    answerButtons.forEach(btn => btn.classList.remove('selected'));
-    button.classList.add('selected');
-
-    // Enable next button
-    nextBtn.disabled = false;
-
-    // Auto-advance after short delay (optional)
-    setTimeout(() => {
-        if (currentQuestionIndex < questions.length - 1) {
-            handleNext();
-        }
-    }, 300);
-}
-
-// Handle previous button
-function handlePrevious() {
-    if (currentQuestionIndex > 0) {
-        currentQuestionIndex--;
-        renderQuestion();
-    }
-}
-
-// Handle next button
-function handleNext() {
-    if (currentQuestionIndex < questions.length - 1) {
-        // Go to next question
-        currentQuestionIndex++;
-        renderQuestion();
+    // Update Button Text
+    if (endIdx >= questions.length) {
+        nextPageBtn.textContent = '결과 분석하기 🚀';
+        nextPageBtn.classList.remove('btn-primary');
+        nextPageBtn.classList.add('btn-accent'); // 강조 스타일 (css에 추가 필요하거나 primary 유지)
     } else {
-        // Submit test
-        submitTest();
+        nextPageBtn.textContent = `다음 페이지 (${currentPage + 1}/${Math.ceil(questions.length / QUESTIONS_PER_PAGE)})`;
     }
+
+    // Generate HTML for each question
+    currentQuestions.forEach((question, index) => {
+        const globalIndex = startIdx + index;
+        const savedAnswer = answers[globalIndex];
+
+        const card = document.createElement('div');
+        card.className = 'question-card';
+        card.id = `question-${globalIndex}`;
+        if (savedAnswer !== null) card.classList.add('answered'); // 이미 답한 경우 흐리게
+
+        card.innerHTML = `
+            <div class="question-header">
+                <span class="question-number">QUESTION ${question.order}</span>
+            </div>
+            <h2 class="question-text">${question.text}</h2>
+            <div class="answer-options">
+                ${generateAnswerButtons(globalIndex, savedAnswer)}
+            </div>
+        `;
+
+        questionsList.appendChild(card);
+    });
 }
 
-// Update navigation button states
-function updateNavigationButtons() {
-    // Previous button
-    prevBtn.disabled = currentQuestionIndex === 0;
+function generateAnswerButtons(questionIndex, savedAnswer) {
+    const options = [
+        { val: 1, icon: '😞', label: '전혀 아니다' },
+        { val: 2, icon: '😐', label: '아니다' },
+        { val: 3, icon: '😊', label: '보통이다' },
+        { val: 4, icon: '😄', label: '그렇다' },
+        { val: 5, icon: '😍', label: '매우 그렇다' }
+    ];
 
-    // Next button
-    const hasAnswer = answers[currentQuestionIndex] !== null;
-    const isLastQuestion = currentQuestionIndex === questions.length - 1;
-
-    nextBtn.disabled = !hasAnswer;
-    nextBtn.innerHTML = isLastQuestion
-        ? '결과 보기 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>'
-        : '다음 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+    return options.map(opt => `
+        <div class="answer-btn ${savedAnswer === opt.val ? 'selected' : ''}" 
+             onclick="handleAnswerClick(${questionIndex}, ${opt.val}, this)">
+            <span class="answer-icon">${opt.icon}</span>
+            <span class="answer-label">${opt.label}</span>
+        </div>
+    `).join('');
 }
 
-// Submit test to API
+// 전역 함수로 선언 (onclick attribute에서 사용)
+window.handleAnswerClick = function(questionIndex, value, btnElement) {
+    // 1. 답변 저장
+    answers[questionIndex] = value;
+
+    // 2. UI 업데이트 (버튼 선택 상태)
+    const parentOptions = btnElement.parentElement;
+    const buttons = parentOptions.querySelectorAll('.answer-btn');
+    buttons.forEach(btn => btn.classList.remove('selected'));
+    btnElement.classList.add('selected');
+
+    // 3. 카드 스타일 변경 (흐리게 처리)
+    const card = document.getElementById(`question-${questionIndex}`);
+    card.classList.add('answered');
+
+    // 4. 진행률 업데이트
+    updateProgress();
+
+    // 5. 다음 문제로 자동 스크롤
+    // 현재 페이지의 마지막 문제가 아니면 다음 문제로 스크롤
+    const relativeIndex = questionIndex % QUESTIONS_PER_PAGE;
+    if (relativeIndex < QUESTIONS_PER_PAGE - 1) {
+        const nextCardId = `question-${questionIndex + 1}`;
+        const nextCard = document.getElementById(nextCardId);
+        if (nextCard) {
+            // 약간의 딜레이를 주어 시각적 피드백 확인 후 스크롤
+            setTimeout(() => {
+                nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+        }
+    } else {
+        // 페이지의 마지막 문제인 경우, '다음 페이지' 버튼으로 스크롤 유도
+        setTimeout(() => {
+            nextPageBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+    }
+};
+
+function updateProgress() {
+    const answeredCount = answers.filter(a => a !== null).length;
+    const total = questions.length;
+    const percent = Math.round((answeredCount / total) * 100);
+
+    progressFill.style.width = `${percent}%`;
+    progressPercent.textContent = `${percent}%`;
+}
+
+function setupEventListeners() {
+    nextPageBtn.addEventListener('click', () => {
+        const startIdx = currentPage * QUESTIONS_PER_PAGE;
+        const endIdx = Math.min(startIdx + QUESTIONS_PER_PAGE, questions.length);
+
+        // 현재 페이지의 모든 질문에 답했는지 확인
+        for (let i = startIdx; i < endIdx; i++) {
+            if (answers[i] === null) {
+                alert(`${i + 1}번 질문에 답변해주세요! 🥺`);
+                const card = document.getElementById(`question-${i}`);
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.classList.remove('answered'); // 강조를 위해 다시 밝게
+                return;
+            }
+        }
+
+        // 마지막 페이지라면 제출
+        if (endIdx >= questions.length) {
+            submitTest();
+        } else {
+            // 다음 페이지 로드
+            currentPage++;
+            renderQuestionsPage();
+        }
+    });
+}
+
 async function submitTest() {
-    // Validate all answers
-    const unanswered = answers.findIndex(a => a === null);
-    if (unanswered !== -1) {
-        alert(`${unanswered + 1}번 질문에 답변해주세요.`);
-        currentQuestionIndex = unanswered;
-        renderQuestion();
-        return;
-    }
-
-    // Show loading
+    // 로딩 오버레이 표시 (로딩중임을 보여주고 싶어하셨던 부분)
     loadingOverlay.style.display = 'flex';
 
     try {
         const response = await fetch(`${API_BASE_URL}/api/results`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                answers: answers
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers: answers })
         });
 
-        if (!response.ok) {
-            throw new Error('결과 생성에 실패했습니다');
-        }
+        if (!response.ok) throw new Error('제출 실패');
 
         const result = await response.json();
-        console.log('✅ 결과 생성 완료:', result);
 
-        // Redirect to result page
-        window.location.href = `result.html?id=${result.id}`;
+        // 잠시 로딩을 보여주기 위해 1초 딜레이 (선택사항)
+        setTimeout(() => {
+            window.location.href = `result.html?id=${result.id}`;
+        }, 1000);
 
     } catch (error) {
-        console.error('❌ 제출 실패:', error);
+        console.error(error);
         loadingOverlay.style.display = 'none';
-        alert('결과 생성에 실패했습니다. 다시 시도해주세요.');
+        alert('결과 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
 }
-
-// Keyboard navigation
-document.addEventListener('keydown', (e) => {
-    if (loadingOverlay.style.display === 'flex') return;
-
-    if (e.key === 'ArrowLeft' && !prevBtn.disabled) {
-        handlePrevious();
-    } else if (e.key === 'ArrowRight' && !nextBtn.disabled) {
-        handleNext();
-    } else if (e.key >= '1' && e.key <= '5') {
-        const value = parseInt(e.key);
-        const button = Array.from(answerOptions.querySelectorAll('.answer-btn'))
-            .find(btn => parseInt(btn.dataset.value) === value);
-        if (button) {
-            handleAnswerClick(button);
-        }
-    }
-});
-
-// Prevent accidental page leave
-window.addEventListener('beforeunload', (e) => {
-    const hasAnswers = answers.some(a => a !== null);
-    const isComplete = answers.every(a => a !== null);
-
-    if (hasAnswers && !isComplete) {
-        e.preventDefault();
-        e.returnValue = '';
-    }
-});

@@ -34,6 +34,9 @@ const similarSummaryText = document.getElementById('similarSummary');
 const shareUrl = document.getElementById('shareUrl');
 const copyBtn = document.getElementById('copyBtn');
 const shareMessage = document.getElementById('shareMessage');
+// 🆕 추가
+const interestTagsSection = document.getElementById('interestTagsSection');
+const interestTagsContainer = document.getElementById('interestTagsContainer');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -101,6 +104,7 @@ async function loadResult(resultId) {
 function renderResult() {
     renderPersonality();
     renderSummary();
+    renderInterestTags(); // 🆕 추가
     renderRadarChart();
     renderTopDepartments();
     renderWorstDepartments();
@@ -126,6 +130,33 @@ function renderSummary() {
     } else {
         interestSummary.style.display = 'none';
     }
+}
+
+// 🆕 Render interest tags
+function renderInterestTags() {
+    const tags = resultData.interest_tags;
+
+    console.log('🏷️ Interest Tags:', tags); // 디버깅용
+
+    if (!tags || tags.length === 0) {
+        console.log('⚠️ 관심사 태그가 없습니다');
+        interestTagsSection.style.display = 'none';
+        return;
+    }
+
+    interestTagsSection.style.display = 'block';
+    interestTagsContainer.innerHTML = '';
+
+    tags.forEach((tag, index) => {
+        const tagElement = document.createElement('span');
+        tagElement.className = 'interest-tag';
+        tagElement.textContent = tag;
+        tagElement.style.animationDelay = `${index * 0.05}s`;
+
+        interestTagsContainer.appendChild(tagElement);
+    });
+
+    console.log('✅ 관심사 태그 렌더링 완료:', tags.length, '개');
 }
 
 // Render radar chart

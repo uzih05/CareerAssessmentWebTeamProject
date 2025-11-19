@@ -1,211 +1,174 @@
-# 전주대학교 전공 유형 검사 프로젝트
+# 전주대학교 전공 유형 검사
 
-## 🎨 프로젝트 구조
+20개 질문 기반 적성 분석 및 70개 학과 매칭 시스템
+
+## 프로젝트 구조
 
 ```
-major-test/
-└── frontend/
-    ├── index.html                    # 메인 페이지
-    ├── pages/                        # 페이지들
-    │   ├── test.html                 # 검사 페이지 (추후 구현)
-    │   ├── result.html               # 결과 페이지 (추후 구현)
-    │   └── departments/              # 학과 소개 페이지들 (추후 구현)
-    ├── css/
-    │   ├── reset.css                 # CSS 리셋
-    │   ├── variables.css             # CSS 변수 (색상, 간격 등)
-    │   ├── common.css                # 공통 스타일
-    │   ├── components/               # 컴포넌트별 스타일
-    │   │   ├── header.css            # 헤더 스타일
-    │   │   └── button.css            # 리퀴드 글래스 버튼
-    │   └── pages/
-    │       └── main.css              # 메인 페이지 스타일
-    ├── js/
-    │   ├── components/
-    │   │   └── header.js             # 헤더 인터랙션
-    │   └── pages/
-    │       └── main.js               # 메인 페이지 로직
-    └── assets/
-        ├── images/                   # 이미지 파일들
-        ├── videos/                   # 비디오 파일들
-        └── fonts/                    # 폰트 파일들
+CareerAssessmentWebTeamProject/
+├── jj_departments_with_scores.json    # 학과 데이터 (필수)
+├── backend/                            # FastAPI 백엔드
+│   ├── main.py                        # 서버 엔트리포인트
+│   ├── database/                      # DB 관리
+│   ├── models/                        # 데이터 모델
+│   ├── routers/                       # API 라우터
+│   └── utils/                         # 유틸리티
+└── frontend/                          # SPA 프론트엔드
+    ├── index.html                     # 메인 페이지
+    ├── pages/                         # 검사/결과 페이지
+    ├── css/                           # 스타일시트
+    └── js/                            # JavaScript
 ```
 
-## 📋 완성된 기능
+## 빠른 시작
 
-### ✅ 메인 페이지 (index.html)
-
-1. **헤더 (Header)**
-   - 로고 및 브랜드명
-   - 네비게이션 메뉴 (홈, 검사하기, 학과소개, 소개)
-   - 모바일 반응형 햄버거 메뉴
-   - 스크롤 시 배경색 변경 효과
-
-2. **히어로 섹션 (Hero Section)**
-   - 풀스크린 배경 (동영상 또는 이미지 지원)
-   - 어두운 그라데이션 오버레이
-   - 타이틀 및 서브타이틀
-   - **리퀴드 글래스 버튼** (검사 시작하기)
-   - 스크롤 인디케이터
-   - 페이드인 애니메이션
-
-3. **특징 섹션 (Features Section)**
-   - 3개의 특징 카드 (정확한 분석, 맞춤 추천, 빠른 결과)
-   - 호버 시 카드 상승 효과
-   - 스크롤 시 순차적 나타남 애니메이션
-
-4. **푸터 (Footer)**
-   - 4단 정보 구역
-   - 바로가기 링크
-   - 연락처 정보
-
-### 🎨 디자인 특징
-
-1. **리퀴드 글래스 효과**
-   - 반투명 배경 (`rgba(255, 255, 255, 0.1)`)
-   - 블러 효과 (`backdrop-filter: blur(20px)`)
-   - 그라데이션 테두리
-   - 호버 시 물결 효과
-   - 클릭 시 리플 애니메이션
-
-2. **색상 시스템**
-   - Primary: `#1a237e` (전주대 블루)
-   - Secondary: `#00897b` (틸)
-   - Accent: `#ffd600` (옐로우)
-   - 완전한 그레이스케일 팔레트
-
-3. **반응형 디자인**
-   - 데스크톱 (1400px+)
-   - 태블릿 (768px - 1399px)
-   - 모바일 (~ 767px)
-
-## 🚀 실행 방법
-
-### 1. 로컬에서 바로 열기
+### 1. 의존성 설치
 ```bash
-# index.html 파일을 브라우저로 드래그하거나 더블클릭
+pip install fastapi uvicorn --break-system-packages
 ```
 
-### 2. 로컬 서버로 실행 (권장)
+### 2. DB 초기화
 ```bash
-# Python 3 사용
-cd frontend
-python -m http.server 8000
-
-# 브라우저에서 http://localhost:8000 접속
+cd backend
+python -m database.seed
 ```
 
-### 3. Live Server (VS Code)
-- VS Code에서 index.html 우클릭
-- "Open with Live Server" 선택
-
-## 📝 배경 설정하기
-
-### 동영상 배경 사용
-
-1. `assets/videos/` 폴더에 `bg-video.mp4` 파일 넣기
-2. index.html에서 이미 설정되어 있음:
-```html
-<video class="hero-video" autoplay muted loop playsinline>
-    <source src="assets/videos/bg-video.mp4" type="video/mp4">
-</video>
+### 3. 백엔드 실행
+```bash
+python main.py
 ```
 
-### 이미지 배경 사용
-
-1. `assets/images/` 폴더에 `bg-image.jpg` 파일 넣기
-2. index.html에서 video 태그를 주석처리하고 img 태그 주석 해제:
-```html
-<!-- <video class="hero-video" ...></video> -->
-<img class="hero-image" src="assets/images/bg-image.jpg" alt="Background">
+### 4. 프론트엔드 실행 (다른 터미널)
+```bash
+cd ../frontend
+python -m http.server 3000
 ```
 
-3. 또는 CSS에서 전환:
-```css
-/* pages/main.css */
-.hero-video {
-    display: none; /* 동영상 숨김 */
-}
+### 5. 브라우저 접속
+- 메인: http://localhost:3000
+- API 문서: http://localhost:8000/docs
 
-.hero-image {
-    display: block; /* 이미지 표시 */
-}
+## 주요 기능
+
+### 백엔드
+- FastAPI 기반 RESTful API
+- SQLite 데이터베이스 (질문 20개, 학과 70개)
+- 유클리드 거리 기반 학과 매칭 알고리즘
+- 점수 계산 및 성향 분석
+- 결과 공유 기능
+
+### 프론트엔드
+- Vanilla JavaScript SPA
+- Chart.js 레이더 차트
+- Glassmorphism UI 디자인
+- 반응형 레이아웃
+- 키보드 네비게이션
+
+## API 엔드포인트
+
+### 질문
+- `GET /api/questions` - 전체 질문 조회
+- `GET /api/questions/{id}` - 개별 질문 조회
+
+### 결과
+- `POST /api/results` - 검사 제출
+- `GET /api/results/{id}` - 결과 조회
+- `DELETE /api/results/{id}` - 결과 삭제
+
+## 데이터 구조
+
+### 적성 타입 (10개)
+1. 언어능력
+2. 논리/분석력
+3. 창의력
+4. 사회성/공감능력
+5. 주도성/리더십
+6. 신체-활동성
+7. 예술감각/공간지각
+8. 체계성/꼼꼼함
+9. 탐구심
+10. 문제해결능력
+
+### 질문 구조
+- 총 20문항 (적성당 2문항)
+- 리커트 5점 척도 (1: 전혀 그렇지 않다 ~ 5: 매우 그렇다)
+- 역채점 문항 포함
+
+### 학과 데이터
+- 70개 학과
+- 각 학과당 10개 적성 점수 (1-10점)
+- 자동 생성 태그 및 계열 분류
+
+## 알고리즘
+
+### 점수 계산
+```python
+# 역채점 처리
+score = 6 - answer if is_reverse else answer
+
+# 적성별 평균
+aptitude_score = sum(scores) / 2  # 적성당 2문항
 ```
 
-## 🎯 다음 단계
+### 학과 매칭
+```python
+# 유클리드 거리
+distance = sqrt(sum((user - dept)^2))
 
-### 즉시 추가 가능한 기능
+# 일치율 (0-100%)
+match_rate = (1 - distance / max_distance) * 100
+```
 
-1. **테스트 페이지 (test.html)**
-   - SPA 방식 질문 전환
-   - 프로그레스 바
-   - 뒤로가기 버튼
+## 문제 해결
 
-2. **결과 페이지 (result.html)**
-   - 레이더 차트 (Chart.js)
-   - Top 3 학과 추천
-   - 공유 기능
+### 백엔드 서버 실행 실패
+```bash
+# 포트 충돌
+lsof -i :8000
+kill -9 <PID>
+```
 
-3. **학과 소개 페이지**
-   - 70개 학과 개별 페이지
-   - 학과별 정보 카드
+### 데이터 없음
+```bash
+cd backend
+python -m database.seed
+```
 
-## 🛠️ 기술 스택
+### CORS 에러
+- `main.py`에서 CORS 설정 확인
+- 백엔드 서버 실행 중인지 확인
 
-- **HTML5**: 시맨틱 마크업
-- **CSS3**: 
-  - CSS Variables (커스텀 속성)
-  - Flexbox & Grid
-  - Animations & Transitions
-  - Glassmorphism
-- **Vanilla JavaScript**: 
-  - ES6+
-  - DOM Manipulation
-  - Intersection Observer API
-  - Event Handling
+### JSON 파일 경로
+- `jj_departments_with_scores.json`이 프로젝트 루트에 있는지 확인
 
-## 📱 브라우저 지원
+## 기술 스택
 
+### 백엔드
+- Python 3.8+
+- FastAPI
+- SQLite3
+- Pydantic
+
+### 프론트엔드
+- HTML5 / CSS3
+- Vanilla JavaScript (ES6+)
+- Chart.js 4.4.0
+
+## 브라우저 지원
 - Chrome 90+
 - Firefox 88+
 - Safari 14+
 - Edge 90+
 
-## 💡 커스터마이징 가이드
+## 개발 팀
+- 강민석
+- 유지헌
+- 조현우
 
-### 색상 변경
-`css/variables.css` 파일에서 색상 변수 수정:
-```css
-:root {
-    --primary-color: #1a237e;  /* 원하는 색상으로 변경 */
-    --secondary-color: #00897b;
-    --accent-color: #ffd600;
-}
-```
-
-### 폰트 변경
-`css/reset.css` 파일에서 폰트 패밀리 수정:
-```css
-body {
-    font-family: 'Noto Sans KR', sans-serif; /* 원하는 폰트로 */
-}
-```
-
-### 애니메이션 속도 조절
-`css/variables.css`:
-```css
-:root {
-    --transition-fast: 150ms ease;   /* 빠른 전환 */
-    --transition-base: 300ms ease;   /* 기본 전환 */
-    --transition-slow: 500ms ease;   /* 느린 전환 */
-}
-```
-
-## 📞 문의
-
-프로젝트 관련 문의사항이 있으시면 팀원에게 연락주세요.
+## 라이선스
+전주대학교 전공 유형 검사 프로젝트
 
 ---
 
-**개발 팀**: 강민석, 유지헌, 조현우  
 **제작**: 2025년  
 **학교**: 전주대학교
