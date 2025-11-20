@@ -342,26 +342,47 @@ async def get_result(result_id: str):
                 detail="결과를 찾을 수 없습니다"
             )
 
-        # JSON 파싱
+            # JSON 파싱
         user_answers = json.loads(row["user_answers"])
         user_scores = json.loads(row["user_scores"])
         top_departments = json.loads(row["top_departments"])
 
-        # 질문 로드하여 성향 재계산
+        # 1. 질문 로드 및 성향/태그 재계산
         questions = load_questions_from_db()
         question_set = QuestionSet(questions)
+
+        # 점수 계산 로직을 통해 관심사 태그(interest_tags)를 다시 추출합니다.
+        score_result = question_set.calculate_score(user_answers)
+        interest_tags = score_result["interest_tags"]
         personality = question_set.analyze_personality(user_scores)
 
-        # 응답 구성 (간소화 버전)
+        # 2. 요약 문구 생성을 위한 임시 결과 객체 생성
+        # (DB에 없는 worst/similar 정보는 빈 리스트로 처리하여 요약 생성에 필요한 최소 데이터만 구성)
+        temp_result = create_test_result(
+            result_id=row["id"],
+            answers=user_answers,
+            scores=user_scores,
+            tags=interest_tags,
+            personality=personality,
+            top_depts=top_departments,
+            worst_depts=[],
+            similar_depts=[]
+        )
+
+        # 3. 요약 문구 생성 ("당신은..." 문장 생성)
+        summary_gen = ResultSummary(temp_result)
+        summary = summary_gen.generate_full_summary()
+
+        # 4. 응답 반환 (summary에 생성된 내용 전달)
         return TestResultResponse(
             id=row["id"],
             url=f"/result/{row['id']}",
             scores=user_scores,
-            interest_tags=[],  # 저장하지 않음
+            interest_tags=interest_tags,
             personality=personality,
-            summary={},  # 요약도 간소화
+            summary=summary,
             top_departments=top_departments,
-            worst_departments=[],  # Worst는 공유 안 함
+            worst_departments=[],
             similar_departments=[],
             created_at=row["created_at"]
         )
